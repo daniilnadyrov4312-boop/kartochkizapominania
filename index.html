@@ -134,6 +134,15 @@
   .report button{font-size:13px;color:var(--muted);background:none;border:1px dashed var(--line)}
   .report button:hover{color:var(--warn);border-color:var(--warn)}
   .adminpanel{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin:14px 0}
+  /* ---- questions (задания 3-4) ---- */
+  .answer{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-top:10px;line-height:1.6}
+  .answer p{margin:0 0 10px}
+  .answer ul{margin:0 0 10px;padding-left:22px}
+  .answer li{margin:3px 0}
+  .answer b{color:#fff}
+  .answer .qnum{font-weight:600;color:var(--accent);margin:10px 0 4px}
+  .cardhint{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--muted);margin-top:10px}
+  .task-head .hint{margin-top:2px}
 </style>
 </head>
 <body>
@@ -141,6 +150,7 @@
 <main id="app"></main>
 
 <script src="data.js"></script>
+<script src="questions.js"></script>
 <script>
 /* ====================== НАСТРОЙКИ ====================== */
 const ADMIN_PASS = "micro2026";   // ← пароль для режима «Правка». Поменяй на свой.
@@ -158,6 +168,7 @@ const LS_REPORTS = "trainer_reports";
 let screen = "home";
 let matchIdx = 0, matchMode = "study", matchInput = "drag"; // study|train|edit ; drag|digits
 let seqIdx = 0, seqMode = "study", seqInput = "drag";
+let quizTask = 3, quizMode = "read", quizIdx = 0, quizReveal = false; // read | cards
 let isAdmin = sessionStorage.getItem("admin")==="1";
 
 const LETTERS = ["А","Б","В","Г","Д","Е","Ж"];
@@ -191,6 +202,7 @@ function render(){
   if(screen==="home") return renderHome(app);
   if(screen==="match") return renderMatch(app);
   if(screen==="seq")   return renderSeq(app);
+  if(screen==="quiz")  return renderQuiz(app);
 }
 function go(s){ screen=s; window.scrollTo(0,0); render(); }
 
@@ -253,6 +265,27 @@ function renderHeader(){
     document.querySelectorAll("#smode button").forEach(b=>b.onclick=()=>{ seqMode=b.dataset.m; render(); });
     document.getElementById("adminbtn").onclick=adminToggle;
   }
+  if(screen==="quiz"){
+    const list=quizList();
+    h.innerHTML = `<button class="home-btn" id="home">🧫 Главная</button>
+      <select id="qpicker"></select>
+      <div class="nav"><button id="qprev">◀</button><button id="qnext">▶</button></div>
+      <div class="grow"></div>
+      <span class="pill">Задание ${quizTask}</span>
+      <div class="seg" id="qmode">
+        <button data-m="read" class="${quizMode==='read'?'on':''}">Чтение</button>
+        <button data-m="cards" class="${quizMode==='cards'?'on':''}">Карточки</button>
+      </div>${lock}`;
+    const p=document.getElementById("qpicker");
+    p.innerHTML = list.map((q,i)=>`<option value="${i}">№${q.num} — ${q.title}</option>`).join("");
+    p.value=quizIdx;
+    p.onchange=e=>{ quizIdx=+e.target.value; quizReveal=false; render(); };
+    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("qprev").onclick=()=>{ quizIdx=(quizIdx-1+list.length)%list.length; quizReveal=false; render(); };
+    document.getElementById("qnext").onclick=()=>{ quizIdx=(quizIdx+1)%list.length; quizReveal=false; render(); };
+    document.querySelectorAll("#qmode button").forEach(b=>b.onclick=()=>{ quizMode=b.dataset.m; quizReveal=false; render(); });
+    document.getElementById("adminbtn").onclick=adminToggle;
+  }
 }
 
 /* ====================== HOME ====================== */
@@ -268,9 +301,19 @@ function renderHome(app){
         <h2>Задание 2 — Последовательности</h2>
         <div class="sub">Расставь шаги в правильном порядке.</div>
         <div class="cnt">${SEQUENCES.length} наборов →</div></div>
+      <div class="card" id="c-q3"><div class="ico">📖</div>
+        <h2>Задание 3 — Теория</h2>
+        <div class="sub">Общая микробиология. Режимы: чтение и карточки (вопрос → ответ).</div>
+        <div class="cnt">${QUESTIONS.filter(q=>q.task===3).length} вопросов →</div></div>
+      <div class="card" id="c-q4"><div class="ico">🧠</div>
+        <h2>Задание 4 — Теория</h2>
+        <div class="sub">Иммунология и генетика. Режимы: чтение и карточки.</div>
+        <div class="cnt">${QUESTIONS.filter(q=>q.task===4).length} вопросов →</div></div>
     </div>`;
   document.getElementById("c-match").onclick=()=>go("match");
   document.getElementById("c-seq").onclick=()=>go("seq");
+  document.getElementById("c-q3").onclick=()=>{ quizTask=3; quizIdx=0; quizReveal=false; go("quiz"); };
+  document.getElementById("c-q4").onclick=()=>{ quizTask=4; quizIdx=0; quizReveal=false; go("quiz"); };
 }
 
 /* ====================== MATCH ====================== */
@@ -594,6 +637,59 @@ function checkSeqDigits(s,n){
   let correct=0; for(let i=0;i<n;i++) if(v[i]===expected[i]) correct++;
   if(v===expected){ res.textContent=`✓ Верно! ${v}`; res.className="result good"; }
   else { res.textContent=`${correct}/${n} верно (правильно: ${expected})`; res.className="result part"; }
+}
+
+/* ====================== QUESTIONS (задания 3-4) ====================== */
+function quizList(){ return (window.QUESTIONS||[]).filter(q=>q.task===quizTask); }
+// мини-markdown → HTML: **жирный**, *курсив*, списки "- ", параграфы
+function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function mdInline(s){
+  s=escHtml(s);
+  s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+  s=s.replace(/\*([^*]+)\*/g,"<i>$1</i>");
+  return s;
+}
+function md2html(md){
+  const lines=md.split("\n"); let html=""; let inList=false; let para=[];
+  const flushP=()=>{ if(para.length){ html+="<p>"+mdInline(para.join(" "))+"</p>"; para=[]; } };
+  const closeL=()=>{ if(inList){ html+="</ul>"; inList=false; } };
+  for(let raw of lines){
+    const line=raw.trim();
+    if(!line){ flushP(); closeL(); continue; }
+    const li=line.match(/^[-*]\s+(.*)$/);
+    const num=line.match(/^\d+\.\s+(.*)$/);
+    if(li){ flushP(); if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+mdInline(li[1])+"</li>"; }
+    else if(num){ flushP(); closeL(); html+="<div class='qnum'>"+mdInline(line)+"</div>"; }
+    else { closeL(); para.push(line); }
+  }
+  flushP(); closeL();
+  return html;
+}
+function renderQuiz(app){
+  const list=quizList(); const q=list[quizIdx]; if(!q){ app.innerHTML="нет данных"; return; }
+  const head=`<div class="task-head">
+    <div><span class="num">Вопрос № ${q.num}</span> <span class="pill">${quizIdx+1} из ${list.length}</span></div>
+    <div class="topic">${escHtml(q.title)}</div>
+    <div class="hint">${q.section}</div></div>`;
+  if(quizMode==="read"){
+    app.innerHTML = head + `<div class="answer">${md2html(q.answer)}</div>`
+      + reportBtn("quiz", "Задание "+quizTask+", вопрос "+q.num);
+    return;
+  }
+  // карточки
+  app.innerHTML = head +
+    (quizReveal
+      ? `<div class="answer">${md2html(q.answer)}</div>`
+      : `<div class="cardhint">Ответь в голове, затем открой ответ.</div>`) +
+    `<div class="bar">
+       ${quizReveal ? "" : `<button class="primary" id="reveal">👁 Открыть ответ</button>`}
+       <button id="rnd">🎲 Случайный вопрос</button>
+       <button id="qn">Следующий №${list[(quizIdx+1)%list.length].num} ▶</button>
+     </div>`
+    + (quizReveal ? reportBtn("quiz", "Задание "+quizTask+", вопрос "+q.num) : "");
+  const rv=document.getElementById("reveal"); if(rv) rv.onclick=()=>{ quizReveal=true; render(); };
+  document.getElementById("rnd").onclick=()=>{ quizIdx=(Math.random()*list.length)|0; quizReveal=false; render(); };
+  document.getElementById("qn").onclick=()=>{ quizIdx=(quizIdx+1)%list.length; quizReveal=false; render(); };
 }
 
 render();
