@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тренажёр по микробиологии</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2230; --panel2:#222d3d; --line:#324155;
+    --txt:#e6edf3; --muted:#8b9bb0; --accent:#4f9dff; --accent2:#2b6fd6;
+    --ok:#2ecc71; --okbg:#16331f; --bad:#ff5c5c; --badbg:#3a1b1b; --warn:#f5a623;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg);color:var(--txt);font-size:15px;line-height:1.45}
+  header{position:sticky;top:0;z-index:10;background:var(--panel);
+    border-bottom:1px solid var(--line);padding:10px 16px;display:flex;
+    flex-wrap:wrap;gap:10px;align-items:center}
+  .home-btn{font-size:16px;font-weight:700;cursor:pointer;background:none;border:none;color:var(--txt);padding:4px}
+  .home-btn:hover{color:var(--accent)}
+  .grow{flex:1}
+  select,button,input{font:inherit;color:var(--txt);background:var(--panel2);
+    border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+  button{cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent2);border-color:var(--accent2);font-weight:600}
+  button.primary:hover{background:var(--accent)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:none;border-radius:0;background:transparent;padding:7px 14px}
+  .seg button.on{background:var(--accent2)}
+  .seg.small button{padding:5px 11px;font-size:13px}
+  .nav{display:flex;gap:8px}
+  .pill{font-size:12px;padding:2px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+  .lock{font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;padding:4px}
+  .lock:hover{color:var(--accent)}
+  main{max-width:980px;margin:0 auto;padding:18px 16px 90px}
+
+  .hero{text-align:center;padding:18px 0 6px}
+  .hero h1{font-size:26px;margin:0 0 6px}
+  .hero p{color:var(--muted);margin:0}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;
+    cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:8px}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card .ico{font-size:34px}
+  .card h2{margin:0;font-size:19px}
+  .card .sub{color:var(--muted);font-size:13px}
+  .card .cnt{margin-top:auto;color:var(--accent);font-weight:600;font-size:13px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+
+  .task-head{margin-bottom:14px}
+  .task-head .num{color:var(--accent);font-weight:700}
+  .task-head .topic{font-size:19px;font-weight:700;margin:2px 0}
+  .badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;
+    border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle}
+  .badge.print{color:var(--ok);border-color:#2c5}
+  .badge.hand{color:var(--warn);border-color:var(--warn)}
+  .badge.logic{color:var(--bad);border-color:var(--bad)}
+  .badge.edited{color:var(--accent);border-color:var(--accent)}
+  .note{background:var(--panel);border-left:3px solid var(--warn);padding:8px 12px;
+    border-radius:0 8px 8px 0;color:var(--muted);font-size:13px;margin:8px 0}
+  .photo-link{font-size:13px}
+  a.link{color:var(--accent);cursor:pointer}
+  .hint{color:var(--muted);font-size:13px}
+  .toprow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0 4px}
+
+  .rows{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+  .row{display:flex;gap:10px;align-items:stretch}
+  .lcell{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;display:flex;gap:10px;align-items:center}
+  .lcell .ltr{font-weight:800;color:var(--accent);font-size:16px;min-width:18px}
+  .slot{flex:1.2;min-height:54px;border:2px dashed var(--line);border-radius:10px;
+    background:var(--panel2);display:flex;align-items:center;justify-content:center;
+    padding:6px 10px;text-align:center;cursor:pointer;color:var(--muted);font-size:14px}
+  .slot.filled{border-style:solid;color:var(--txt);background:var(--panel)}
+  .slot.ok{border-color:var(--ok);background:var(--okbg)}
+  .slot.bad{border-color:var(--bad);background:var(--badbg)}
+  .slot.target{border-color:var(--accent)}
+  .pool{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .pool h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+  .chips{display:flex;flex-direction:column;gap:8px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;cursor:grab;display:flex;gap:8px;align-items:center}
+  .chip:hover{border-color:var(--accent)}
+  .chip.sel{border-color:var(--accent);background:#1d2a3d}
+  .chip.dragging{opacity:.4}
+  .chip .gr{color:var(--muted)}
+  .bar{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+  .result{font-weight:700}
+  .result.good{color:var(--ok)} .result.part{color:var(--warn)}
+
+  /* digit mode reference */
+  .refcols{display:flex;gap:16px;margin-top:12px}
+  .refcol{flex:1}
+  .refcol h4{margin:0 0 6px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .refitem{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px}
+  .refitem b{color:var(--accent);min-width:18px}
+  .digit-in{font-size:22px;letter-spacing:8px;text-align:center;width:220px;font-weight:700}
+  @media(max-width:640px){.refcols{flex-direction:column;gap:8px}}
+
+  table.std{width:100%;border-collapse:collapse;margin-top:10px}
+  table.std td{border:1px solid var(--line);padding:10px 12px;vertical-align:top}
+  table.std td.l{width:42%;background:var(--panel)}
+  table.std td.ltr{width:26px;text-align:center;color:var(--accent);font-weight:800;background:var(--panel)}
+  table.std tr.hide td.r{color:transparent;cursor:pointer;user-select:none;background:var(--panel2)}
+  table.std tr.hide td.r:hover{color:var(--muted)}
+
+  table.edit{width:100%;border-collapse:collapse;margin-top:10px}
+  table.edit th,table.edit td{border:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}
+  table.edit th{background:var(--panel);font-size:13px;color:var(--muted)}
+  table.edit select{width:64px}
+  .ta{width:100%;background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    border-radius:6px;padding:6px 8px;font:inherit;resize:vertical;line-height:1.35}
+  .ta:focus,.finput:focus,.digit-in:focus{outline:none;border-color:var(--accent)}
+  .edit-block{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0}
+  .fl{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
+  .finput{width:100%;margin-bottom:10px}
+  .edit-block .finput:last-child{margin-bottom:0}
+  .two{display:flex;gap:12px}.two>div{flex:1}
+  .eh{margin:20px 0 6px;font-size:14px;color:var(--muted)}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+
+  .seqlist{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .seqitem{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;display:flex;gap:12px;align-items:center}
+  .seqitem .pos{font-weight:800;color:var(--accent);min-width:22px;text-align:center}
+  .seqitem .txt{flex:1}
+  .seqitem.ok{border-color:var(--ok);background:var(--okbg)}
+  .seqitem.bad{border-color:var(--bad);background:var(--badbg)}
+  .mv{display:flex;flex-direction:column;gap:3px}
+  .mv button{padding:2px 9px;line-height:1}
+  .seqitem.dragging{opacity:.4}
+  .report{margin-top:22px}
+  .report button{font-size:13px;color:var(--muted);background:none;border:1px dashed var(--line)}
+  .report button:hover{color:var(--warn);border-color:var(--warn)}
+  .adminpanel{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin:14px 0}
+</style>
+</head>
+<body>
+<header id="hdr"></header>
+<main id="app"></main>
+
+<script src="data.js"></script>
+<script>
+/* ====================== НАСТРОЙКИ ====================== */
+const ADMIN_PASS = "micro2026";   // ← пароль для режима «Правка». Поменяй на свой.
+
+// Приём замечаний об ошибках. БЕЗОПАСНО: токен Telegram сюда НЕ вставляем
+// (это публичный файл). Здесь только адрес «посредника» (Cloudflare Worker),
+// внутри которого токен лежит как секрет. Инструкция — в файле РАЗВЁРТКА.txt.
+// Пока пусто — замечание просто копируется в буфер обмена.
+const REPORT_RELAY_URL = "";  // напр. "https://kartochki-relay.xxx.workers.dev"
+
+const LS = "trainer_keys_v2";
+const LS_REPORTS = "trainer_reports";
+
+/* ====================== STATE ====================== */
+let screen = "home";
+let matchIdx = 0, matchMode = "study", matchInput = "drag"; // study|train|edit ; drag|digits
+let seqIdx = 0, seqMode = "study", seqInput = "drag";
+let isAdmin = sessionStorage.getItem("admin")==="1";
+
+const LETTERS = ["А","Б","В","Г","Д","Е","Ж"];
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const reshuffleUntilChanged = (n) => { const base=[...Array(n).keys()]; let s=shuffle(base); if(n>1){let g=0; while(s.every((v,i)=>v===i)&&g++<20) s=shuffle(base);} return s; };
+
+function loadOverrides(){ try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return {}} }
+function saveOverrides(o){ localStorage.setItem(LS, JSON.stringify(o)); }
+let overrides = loadOverrides();
+function ticket(i){
+  const t = JSON.parse(JSON.stringify(TICKETS[i]));
+  const ov = overrides[t.id];
+  if(ov){
+    if(ov.answer) t.answer = ov.answer.slice();
+    if(typeof ov.ok==="boolean") t.ok = ov.ok;
+    if(ov.left) t.left = ov.left.slice();
+    if(ov.right) t.right = ov.right.slice();
+    if(ov.topic!=null) t.topic = ov.topic;
+    if(ov.leftHeader!=null) t.leftHeader = ov.leftHeader;
+    if(ov.rightHeader!=null) t.rightHeader = ov.rightHeader;
+    if(ov.edited) t.edited = true;
+  }
+  return t;
+}
+function setOverride(id, patch){ overrides[id]=Object.assign({},overrides[id],patch); saveOverrides(overrides); }
+
+/* ====================== ROUTER ====================== */
+function render(){
+  renderHeader();
+  const app = document.getElementById("app");
+  if(screen==="home") return renderHome(app);
+  if(screen==="match") return renderMatch(app);
+  if(screen==="seq")   return renderSeq(app);
+}
+function go(s){ screen=s; window.scrollTo(0,0); render(); }
+
+function adminToggle(){
+  if(isAdmin){
+    if(confirm("Выйти из режима администратора?")){ isAdmin=false; sessionStorage.removeItem("admin"); if(matchMode==="edit") matchMode="study"; render(); }
+  } else {
+    const p = prompt("Пароль администратора:");
+    if(p===ADMIN_PASS){ isAdmin=true; sessionStorage.setItem("admin","1"); alert("Режим администратора включён. Появилась вкладка «Правка»."); render(); }
+    else if(p!=null){ alert("Неверный пароль."); }
+  }
+}
+
+function renderHeader(){
+  const h = document.getElementById("hdr");
+  const lock = `<button class="lock" id="adminbtn">${isAdmin?"🔓 админ":"🔒"}</button>`;
+  if(screen==="home"){
+    h.innerHTML = `<button class="home-btn">🧫 Тренажёр по микробиологии</button><div class="grow"></div>${lock}`;
+    document.getElementById("adminbtn").onclick=adminToggle; return;
+  }
+  if(screen==="match"){
+    h.innerHTML = `<button class="home-btn" id="home">🧫 Главная</button>
+      <select id="picker"></select>
+      <div class="nav"><button id="prev">◀</button><button id="next">▶</button></div>
+      <div class="grow"></div>
+      <span class="pill" id="progress"></span>
+      <div class="seg" id="mode">
+        <button data-m="study" class="${matchMode==='study'?'on':''}">Запоминание</button>
+        <button data-m="train" class="${matchMode==='train'?'on':''}">Тренировка</button>
+        ${isAdmin?`<button data-m="edit" class="${matchMode==='edit'?'on':''}">Правка</button>`:''}
+      </div>${lock}`;
+    const p=document.getElementById("picker");
+    p.innerHTML = TICKETS.map((t,i)=>`<option value="${i}">${t.num} — ${t.topic}</option>`).join("");
+    p.value = matchIdx;
+    p.onchange=e=>{ matchIdx=+e.target.value; render(); };
+    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("prev").onclick=()=>{ matchIdx=(matchIdx-1+TICKETS.length)%TICKETS.length; render(); };
+    document.getElementById("next").onclick=()=>{ matchIdx=(matchIdx+1)%TICKETS.length; render(); };
+    document.querySelectorAll("#mode button").forEach(b=>b.onclick=()=>{ matchMode=b.dataset.m; render(); });
+    document.getElementById("adminbtn").onclick=adminToggle;
+    const total=TICKETS.length; let done=0; TICKETS.forEach((_,i)=>{ if(ticket(i).ok) done++; });
+    document.getElementById("progress").textContent=`Готово: ${done}/${total}`;
+  }
+  if(screen==="seq"){
+    h.innerHTML = `<button class="home-btn" id="home">🧫 Главная</button>
+      <select id="spicker"></select>
+      <div class="nav"><button id="sprev">◀</button><button id="snext">▶</button></div>
+      <div class="grow"></div>
+      <div class="seg" id="smode">
+        <button data-m="study" class="${seqMode==='study'?'on':''}">Запоминание</button>
+        <button data-m="train" class="${seqMode==='train'?'on':''}">Тренировка</button>
+      </div>${lock}`;
+    const p=document.getElementById("spicker");
+    p.innerHTML = SEQUENCES.map((s,i)=>`<option value="${i}">${s.num} — ${s.topic}</option>`).join("") || `<option>нет данных</option>`;
+    p.value=seqIdx;
+    p.onchange=e=>{ seqIdx=+e.target.value; render(); };
+    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("sprev").onclick=()=>{ if(SEQUENCES.length){seqIdx=(seqIdx-1+SEQUENCES.length)%SEQUENCES.length; render();} };
+    document.getElementById("snext").onclick=()=>{ if(SEQUENCES.length){seqIdx=(seqIdx+1)%SEQUENCES.length; render();} };
+    document.querySelectorAll("#smode button").forEach(b=>b.onclick=()=>{ seqMode=b.dataset.m; render(); });
+    document.getElementById("adminbtn").onclick=adminToggle;
+  }
+}
+
+/* ====================== HOME ====================== */
+function renderHome(app){
+  app.innerHTML = `
+    <div class="hero"><h1>Тренажёр по микробиологии</h1><p>Выбери, что учить</p></div>
+    <div class="cards">
+      <div class="card" id="c-match"><div class="ico">🔗</div>
+        <h2>Задание 1 — Соответствия</h2>
+        <div class="sub">Сопоставь левый и правый столбцы. Режимы: запоминание и тренировка (перетаскивание или ввод цифрами).</div>
+        <div class="cnt">${TICKETS.length} билетов →</div></div>
+      <div class="card" id="c-seq"><div class="ico">🔢</div>
+        <h2>Задание 2 — Последовательности</h2>
+        <div class="sub">Расставь шаги в правильном порядке.</div>
+        <div class="cnt">${SEQUENCES.length} наборов →</div></div>
+    </div>`;
+  document.getElementById("c-match").onclick=()=>go("match");
+  document.getElementById("c-seq").onclick=()=>go("seq");
+}
+
+/* ====================== MATCH ====================== */
+function srcBadge(src){
+  if(src==="печать") return '<span class="badge print">источник: печать</span>';
+  if(src==="рукопись") return '<span class="badge hand">источник: рукопись ✎</span>';
+  if(src==="логика") return '<span class="badge logic">источник: логика ⚠</span>';
+  return '';
+}
+function headHtml(t){
+  // Плашки источника/«изменён» показываем только в режиме «Правка» (админ)
+  const adminBadges = (matchMode==="edit")
+    ? ` ${srcBadge(t.src)} ${t.edited?'<span class="badge edited">✎ изменён</span>':''}` : "";
+  const note = (matchMode==="edit" && t.note) ? `<div class="note">⚠ ${t.note}</div>` : "";
+  return `<div class="task-head">
+    <div><span class="num">${t.num}</span>${adminBadges}</div>
+    <div class="topic">${t.topic}</div>
+    <div class="photo-link"><a class="link" onclick="openPhoto(${t.id})">🖼 открыть фото билета</a></div>
+    ${note}
+  </div>`;
+}
+function openPhoto(id){
+  const t = TICKETS.find(x=>x.id===id);
+  const n = (t.num.match(/\d+/)||[""])[0];
+  window.open(`фото таблиц/Рисунок${n}.png`,"_blank");
+}
+function reportBtn(kind, label){
+  return `<div class="report"><button onclick="sendReport('${kind}','${label.replace(/'/g,"")}')">⚠ Сообщить об ошибке в этом билете</button></div>`;
+}
+function sendReport(kind, label){
+  const txt = prompt("Опиши, что не так (опечатка, неверный ответ и т.п.):");
+  if(!txt) return;
+  const reports = JSON.parse(localStorage.getItem(LS_REPORTS)||"[]");
+  const r = {kind, label, text:txt, time:new Date().toLocaleString("ru-RU")};
+  reports.push(r); localStorage.setItem(LS_REPORTS, JSON.stringify(reports));
+  const msg = `🧫 Замечание\n«${label}»\n${txt}`;
+  if(REPORT_RELAY_URL){
+    fetch(REPORT_RELAY_URL,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({label, text:txt})
+    }).then(()=>alert("Спасибо! Замечание отправлено автору."))
+      .catch(()=>{ if(navigator.clipboard) navigator.clipboard.writeText(msg).catch(()=>{});
+        alert("Замечание сохранено и скопировано в буфер (отправить не удалось)."); });
+  } else {
+    if(navigator.clipboard) navigator.clipboard.writeText(msg).catch(()=>{});
+    alert("Спасибо! Замечание сохранено"+(navigator.clipboard?" и скопировано в буфер — можешь переслать его автору.":"."));
+  }
+}
+function renderMatch(app){
+  const t = ticket(matchIdx);
+  if(matchMode==="study") return renderStudy(t, app);
+  if(matchMode==="train") return renderTrain(t, app);
+  return renderEdit(t, app);
+}
+
+/* ---- STUDY ---- */
+function renderStudy(t, app){
+  app.innerHTML = headHtml(t) +
+   `<div class="bar"><button id="toggle">🙈 Скрыть правый столбец</button>
+      <span class="hint">кликай по скрытой ячейке, чтобы подсмотреть</span></div>
+    <table class="std"><tbody>${
+      t.left.map((l,i)=>{
+        const r = t.answer && t.answer[i] ? t.right[t.answer[i]-1] : '<span class="hint">—</span>';
+        return `<tr><td class="ltr">${LETTERS[i]}</td><td class="l">${l}</td><td class="r">${r}</td></tr>`;
+      }).join("")
+    }</tbody></table>` + reportBtn("match", t.num+" "+t.topic);
+  let hidden=false;
+  const tbl=app.querySelector("table.std");
+  document.getElementById("toggle").onclick=(e)=>{
+    hidden=!hidden;
+    tbl.querySelectorAll("tr").forEach(tr=>tr.classList.toggle("hide",hidden));
+    e.target.textContent = hidden? "👁 Показать правый столбец" : "🙈 Скрыть правый столбец";
+  };
+  tbl.querySelectorAll("td.r").forEach(td=>td.onclick=()=>{ if(td.parentElement.classList.contains("hide")) td.parentElement.classList.remove("hide"); });
+}
+
+/* ---- TRAIN ---- */
+function inputToggle(scope){
+  const cur = scope==="match"?matchInput:seqInput;
+  return `<div class="toprow"><span class="hint">Способ ответа:</span>
+    <div class="seg small" id="inp">
+      <button data-i="drag" class="${cur==='drag'?'on':''}">Перетаскивание</button>
+      <button data-i="digits" class="${cur==='digits'?'on':''}">Цифрами</button>
+    </div></div>`;
+}
+function renderTrain(t, app){
+  if(matchInput==="digits") return renderTrainDigits(t, app);
+  return renderTrainDrag(t, app);
+}
+function bindInputToggle(scope, rerender){
+  document.querySelectorAll("#inp button").forEach(b=>b.onclick=()=>{
+    if(scope==="match") matchInput=b.dataset.i; else seqInput=b.dataset.i; rerender();
+  });
+}
+let leftOrder=[], pool=[], assign={}, selectedChip=null;
+function renderTrainDrag(t, app){
+  const n=t.left.length;
+  leftOrder=reshuffleUntilChanged(n); pool=reshuffleUntilChanged(n); assign={}; selectedChip=null;
+  app.innerHTML = headHtml(t) + inputToggle("match") +
+    `<div class="hint">Перетащи (или кликни вариант → строку) правильный вариант к каждому пункту. Слева и справа порядок каждый раз новый.</div>
+     <div class="rows" id="rows"></div>
+     <div class="pool"><h3>${t.rightHeader}</h3><div class="chips" id="poolEl"></div></div>
+     <div class="bar"><button class="primary" id="check">Проверить</button>
+       <button id="reshuffle">Перемешать заново</button><span class="result" id="res"></span></div>`
+     + reportBtn("match", t.num+" "+t.topic);
+  bindInputToggle("match", ()=>renderTrain(t, app));
+  drawRows(t); drawPool(t);
+  document.getElementById("check").onclick=()=>checkTrain(t);
+  document.getElementById("reshuffle").onclick=()=>renderTrainDrag(t, app);
+}
+function drawRows(t){
+  const rows=document.getElementById("rows");
+  rows.innerHTML = leftOrder.map(L=>{
+    const filled = assign[L]!=null;
+    const label = filled ? t.right[assign[L]] : "перетащи сюда вариант";
+    return `<div class="row"><div class="lcell"><span class="ltr">•</span><span>${t.left[L]}</span></div>
+      <div class="slot ${filled?'filled':''}" data-l="${L}">${label}</div></div>`;
+  }).join("");
+  rows.querySelectorAll(".slot").forEach(sl=>{
+    const L=+sl.dataset.l;
+    sl.addEventListener("click",()=>{ if(selectedChip!=null){ placeChip(t, selectedChip, L); selectedChip=null; }
+      else if(assign[L]!=null){ delete assign[L]; drawRows(t); drawPool(t); } });
+    sl.addEventListener("dragover",e=>{e.preventDefault(); sl.classList.add("target");});
+    sl.addEventListener("dragleave",()=>sl.classList.remove("target"));
+    sl.addEventListener("drop",e=>{ e.preventDefault(); sl.classList.remove("target"); placeChip(t, +e.dataTransfer.getData("text/plain"), L); });
+  });
+}
+function drawPool(t){
+  const el=document.getElementById("poolEl");
+  const used=new Set(Object.values(assign).map(Number));
+  el.innerHTML = pool.map(R=>{ if(used.has(R)) return "";
+    return `<div class="chip ${selectedChip===R?'sel':''}" draggable="true" data-r="${R}"><span class="gr">≡</span><span>${t.right[R]}</span></div>`;
+  }).join("") || '<span class="hint">Все варианты расставлены.</span>';
+  el.querySelectorAll(".chip").forEach(ch=>{ const R=+ch.dataset.r;
+    ch.addEventListener("click",()=>{ selectedChip=(selectedChip===R?null:R); drawPool(t); });
+    ch.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/plain",R); ch.classList.add("dragging"); });
+    ch.addEventListener("dragend",()=>ch.classList.remove("dragging")); });
+}
+function placeChip(t, R, L){ for(const k in assign){ if(assign[k]===R) delete assign[k]; } assign[L]=R; drawRows(t); drawPool(t); }
+function checkTrain(t){
+  if(!t.answer){ document.getElementById("res").textContent="Нет ключа."; return; }
+  let correct=0;
+  document.querySelectorAll("#rows .slot").forEach(sl=>{ const L=+sl.dataset.l; sl.classList.remove("ok","bad");
+    if(assign[L]==null) return;
+    if(t.answer[L]===assign[L]+1){ sl.classList.add("ok"); correct++; } else sl.classList.add("bad"); });
+  const res=document.getElementById("res"); const n=t.left.length;
+  if(correct===n){ res.textContent=`✓ Всё верно! ${correct}/${n}`; res.className="result good"; }
+  else { res.textContent=`${correct}/${n} верно`; res.className="result part"; }
+}
+
+/* ---- TRAIN: цифрами ---- */
+function renderTrainDigits(t, app){
+  const n=t.left.length;
+  app.innerHTML = headHtml(t) + inputToggle("match") +
+    `<div class="hint">Запиши цифры под буквами. Например <b>2 3 1 5 4</b> = А→2, Б→3, В→1, Г→5, Д→4.</div>
+     <div class="refcols">
+       <div class="refcol"><h4>${t.leftHeader}</h4>${t.left.map((l,i)=>`<div class="refitem"><b>${LETTERS[i]}</b><span>${l}</span></div>`).join("")}</div>
+       <div class="refcol"><h4>${t.rightHeader}</h4>${t.right.map((r,i)=>`<div class="refitem"><b>${i+1}</b><span>${r}</span></div>`).join("")}</div>
+     </div>
+     <div class="bar">
+       <span>${LETTERS.slice(0,n).join("&nbsp;&nbsp;&nbsp;")}</span>
+     </div>
+     <div class="bar">
+       <input class="digit-in" id="digits" maxlength="${n}" inputmode="numeric" placeholder="${"•".repeat(n)}" autocomplete="off">
+       <button class="primary" id="dcheck">Проверить</button>
+       <span class="result" id="dres"></span>
+     </div>` + reportBtn("match", t.num+" "+t.topic);
+  bindInputToggle("match", ()=>renderTrain(t, app));
+  const inp=document.getElementById("digits");
+  inp.oninput=()=>{ inp.value=inp.value.replace(/[^1-5]/g,"").slice(0,n); };
+  inp.onkeydown=e=>{ if(e.key==="Enter") checkDigits(t,n); };
+  document.getElementById("dcheck").onclick=()=>checkDigits(t,n);
+  inp.focus();
+}
+function checkDigits(t,n){
+  const v=document.getElementById("digits").value;
+  const res=document.getElementById("dres");
+  if(v.length!==n){ res.textContent=`нужно ${n} цифр`; res.className="result part"; return; }
+  let correct=0; let detail=[];
+  for(let i=0;i<n;i++){ const good=(+v[i])===t.answer[i]; if(good) correct++; detail.push(`${LETTERS[i]}${good?"✓":"✗"}`); }
+  if(correct===n){ res.textContent=`✓ Всё верно! ${v}`; res.className="result good"; }
+  else { res.textContent=`${correct}/${n} — ${detail.join(" ")} (верно: ${t.answer.join("")})`; res.className="result part"; }
+}
+
+/* ---- EDIT (только админ) ---- */
+function esc(s){ return String(s).replace(/"/g,'&quot;'); }
+function curAns(id, n){ const a=ticket(TICKETS.findIndex(x=>x.id===id)).answer; return a?a.slice():new Array(n).fill(0); }
+function renderEdit(t, app){
+  const ans = t.answer || t.left.map(()=>0);
+  const reports = JSON.parse(localStorage.getItem(LS_REPORTS)||"[]");
+  app.innerHTML = headHtml(t) +
+   (reports.length?`<div class="adminpanel"><b>📥 Замечания от пользователей (${reports.length}):</b>
+     <ul>${reports.slice(-10).reverse().map(r=>`<li>${r.time} — <i>${r.label}</i>: ${r.text}</li>`).join("")}</ul>
+     <button id="clrrep">Очистить замечания</button></div>`:'') +
+   `<div class="hint">Правь любой текст и ключ. Сохраняется в этом браузере. Экспортируй JSON и пришли мне — зашью навсегда.</div>
+    <div class="edit-block">
+      <label class="fl">Тема билета</label><input class="finput" id="f-topic" value="${esc(t.topic)}">
+      <div class="two">
+        <div><label class="fl">Заголовок левого столбца</label><input class="finput" id="f-lh" value="${esc(t.leftHeader)}"></div>
+        <div><label class="fl">Заголовок правого столбца</label><input class="finput" id="f-rh" value="${esc(t.rightHeader)}"></div>
+      </div>
+    </div>
+    <h3 class="eh">Левый столбец и правильный ответ</h3>
+    <table class="edit"><thead><tr><th style="width:28px"></th><th>${esc(t.leftHeader)}</th>
+      <th style="width:70px">Ответ</th><th>→ вариант</th></tr></thead><tbody id="ebody"></tbody></table>
+    <h3 class="eh">Правый столбец — варианты (1–5)</h3>
+    <table class="edit"><tbody id="rbody"></tbody></table>
+    <div class="bar"><label><input type="checkbox" id="okchk" ${t.ok?'checked':''}> проверено</label>
+      <button id="resetkey">Сбросить билет к исходному</button></div>
+    <div class="toolbar" style="margin-top:24px"><button class="primary" id="exp">⬇ Скачать всё (JSON)</button>
+      <span class="hint">— пришли мне файл, и я зашью правки навсегда.</span></div>`;
+  if(reports.length) document.getElementById("clrrep").onclick=()=>{ if(confirm("Очистить все замечания?")){ localStorage.removeItem(LS_REPORTS); render(); } };
+  const body=document.getElementById("ebody");
+  body.innerHTML=t.left.map((txt,li)=>{
+    const opts=`<option value="0">—</option>`+t.right.map((_,i)=>`<option value="${i+1}" ${ans[li]===i+1?'selected':''}>${i+1}</option>`).join("");
+    const cur=ans[li]?t.right[ans[li]-1]:'<span class="hint">не задано</span>';
+    return `<tr><td><b>${LETTERS[li]}</b></td><td><textarea class="ta" data-k="left" data-i="${li}" rows="2">${txt}</textarea></td>
+      <td><select data-li="${li}">${opts}</select></td><td id="cur${li}">${cur}</td></tr>`;
+  }).join("");
+  const rbody=document.getElementById("rbody");
+  rbody.innerHTML=t.right.map((r,i)=>`<tr><td style="width:28px"><b>${i+1}</b></td><td><textarea class="ta" data-k="right" data-i="${i}" rows="2">${r}</textarea></td></tr>`).join("");
+  function saveText(){
+    const left=[...body.querySelectorAll('textarea[data-k="left"]')].map(x=>x.value);
+    const right=[...rbody.querySelectorAll('textarea[data-k="right"]')].map(x=>x.value);
+    setOverride(t.id,{left,right,topic:document.getElementById("f-topic").value,
+      leftHeader:document.getElementById("f-lh").value,rightHeader:document.getElementById("f-rh").value,edited:true});
+    body.querySelectorAll("select").forEach(s=>{ const li=+s.dataset.li,v=+s.value;
+      document.getElementById("cur"+li).innerHTML=v?right[v-1]:'<span class="hint">не задано</span>'; });
+  }
+  app.querySelectorAll('.ta, #f-topic, #f-lh, #f-rh').forEach(el=>el.addEventListener("input",saveText));
+  body.querySelectorAll("select").forEach(s=>{ s.onchange=()=>{
+    const li=+s.dataset.li; const cur=curAns(t.id,t.left.length); cur[li]=+s.value; setOverride(t.id,{answer:cur});
+    const right=[...rbody.querySelectorAll('textarea[data-k="right"]')].map(x=>x.value);
+    document.getElementById("cur"+li).innerHTML=+s.value?right[+s.value-1]:'<span class="hint">не задано</span>'; }; });
+  document.getElementById("okchk").onchange=e=>{ setOverride(t.id,{ok:e.target.checked}); render(); };
+  document.getElementById("resetkey").onclick=()=>{ if(confirm("Сбросить правки этого билета?")){ delete overrides[t.id]; saveOverrides(overrides); render(); } };
+  document.getElementById("exp").onclick=exportJSON;
+}
+function exportJSON(){
+  const data=TICKETS.map((_,i)=>{ const x=ticket(i);
+    return {id:x.id,num:x.num,topic:x.topic,src:x.src,ok:!!x.ok,edited:!!x.edited,
+      leftHeader:x.leftHeader,rightHeader:x.rightHeader,left:x.left,right:x.right,answer:x.answer||null}; });
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="тренажёр_правки.json"; a.click();
+}
+
+/* ====================== SEQUENCES ====================== */
+let seqOrder=[], seqRef=[];
+function renderSeq(app){
+  if(!SEQUENCES.length){ app.innerHTML=`<div class="note" style="border-color:var(--accent);color:var(--txt)">Нет данных.</div>`; return; }
+  const s=SEQUENCES[seqIdx];
+  const head=`<div class="task-head"><div><span class="num">${s.num}</span>${s.example?' <span class="badge logic">пример</span>':''}</div>
+    <div class="topic">${s.topic}</div></div>`;
+  if(seqMode==="study"){
+    app.innerHTML=head+`<div class="hint">Запомни правильный порядок:</div>
+      <div class="seqlist">${s.items.map((it,i)=>`<div class="seqitem"><span class="pos">${i+1}</span><span class="txt">${it}</span></div>`).join("")}</div>`;
+    return;
+  }
+  if(seqInput==="digits") return renderSeqDigits(s, app, head);
+  // drag
+  seqOrder=reshuffleUntilChanged(s.items.length);
+  app.innerHTML=head+inputToggle("seq")+
+    `<div class="hint">Расставь шаги в правильном порядке (▲▼ или перетаскиванием), затем проверь.</div>
+    <div class="seqlist" id="seqlist"></div>
+    <div class="bar"><button class="primary" id="scheck">Проверить</button>
+      <button id="sshuffle">Перемешать заново</button><span class="result" id="sres"></span></div>`;
+  bindInputToggle("seq", ()=>renderSeq(app));
+  drawSeq(s);
+  document.getElementById("scheck").onclick=()=>checkSeq(s);
+  document.getElementById("sshuffle").onclick=()=>renderSeq(app);
+}
+function drawSeq(s){
+  const list=document.getElementById("seqlist");
+  list.innerHTML=seqOrder.map((orig,pos)=>`
+    <div class="seqitem" draggable="true" data-pos="${pos}">
+      <span class="pos">${pos+1}</span><span class="txt">${s.items[orig]}</span>
+      <span class="mv"><button data-up="${pos}">▲</button><button data-dn="${pos}">▼</button></span></div>`).join("");
+  list.querySelectorAll("button[data-up]").forEach(b=>b.onclick=()=>{ const p=+b.dataset.up; if(p>0){ [seqOrder[p-1],seqOrder[p]]=[seqOrder[p],seqOrder[p-1]]; drawSeq(s);} });
+  list.querySelectorAll("button[data-dn]").forEach(b=>b.onclick=()=>{ const p=+b.dataset.dn; if(p<seqOrder.length-1){ [seqOrder[p+1],seqOrder[p]]=[seqOrder[p],seqOrder[p+1]]; drawSeq(s);} });
+  let dragPos=null;
+  list.querySelectorAll(".seqitem").forEach(it=>{
+    it.addEventListener("dragstart",()=>{ dragPos=+it.dataset.pos; it.classList.add("dragging"); });
+    it.addEventListener("dragend",()=>it.classList.remove("dragging"));
+    it.addEventListener("dragover",e=>e.preventDefault());
+    it.addEventListener("drop",e=>{ e.preventDefault(); const to=+it.dataset.pos;
+      if(dragPos!=null&&dragPos!==to){ const v=seqOrder.splice(dragPos,1)[0]; seqOrder.splice(to,0,v); drawSeq(s);} });
+  });
+}
+function checkSeq(s){
+  let correct=0;
+  document.querySelectorAll("#seqlist .seqitem").forEach((el,pos)=>{ el.classList.remove("ok","bad");
+    if(seqOrder[pos]===pos){ el.classList.add("ok"); correct++; } else el.classList.add("bad"); });
+  const res=document.getElementById("sres"); const n=s.items.length;
+  if(correct===n){ res.textContent=`✓ Верно! ${correct}/${n}`; res.className="result good"; }
+  else { res.textContent=`${correct}/${n} на своих местах`; res.className="result part"; }
+}
+/* ---- SEQ: цифрами ---- */
+function renderSeqDigits(s, app, head){
+  const n=s.items.length;
+  seqRef=reshuffleUntilChanged(n); // показываем шаги в перемешанном порядке с метками 1..n
+  app.innerHTML=head+inputToggle("seq")+
+    `<div class="hint">Шаги даны вперемешку. Запиши их номера в правильном порядке (например <b>${seqRef.map((_,i)=>i+1).join("")}</b> → твой порядок).</div>
+     <div class="seqlist">${seqRef.map((orig,pos)=>`<div class="seqitem"><span class="pos">${pos+1}</span><span class="txt">${s.items[orig]}</span></div>`).join("")}</div>
+     <div class="bar">
+       <input class="digit-in" id="sdigits" maxlength="${n}" inputmode="numeric" placeholder="${"•".repeat(n)}" autocomplete="off" style="letter-spacing:6px;width:${Math.max(180,n*34)}px">
+       <button class="primary" id="sdcheck">Проверить</button><span class="result" id="sdres"></span></div>`;
+  bindInputToggle("seq", ()=>renderSeq(app));
+  const inp=document.getElementById("sdigits");
+  const maxd = n<=9 ? `[^1-${n}]` : "[^0-9]";
+  inp.oninput=()=>{ inp.value=inp.value.replace(new RegExp(maxd,"g"),"").slice(0,n); };
+  inp.onkeydown=e=>{ if(e.key==="Enter") checkSeqDigits(s,n); };
+  document.getElementById("sdcheck").onclick=()=>checkSeqDigits(s,n);
+  inp.focus();
+}
+function checkSeqDigits(s,n){
+  const v=document.getElementById("sdigits").value;
+  const res=document.getElementById("sdres");
+  if(v.length!==n){ res.textContent=`нужно ${n} цифр`; res.className="result part"; return; }
+  // правильный ответ: для каждого шага k (0..n-1) — его метка = позиция в seqRef +1
+  const expected = [...Array(n).keys()].map(k=>seqRef.indexOf(k)+1).join("");
+  let correct=0; for(let i=0;i<n;i++) if(v[i]===expected[i]) correct++;
+  if(v===expected){ res.textContent=`✓ Верно! ${v}`; res.className="result good"; }
+  else { res.textContent=`${correct}/${n} верно (правильно: ${expected})`; res.className="result part"; }
+}
+
+render();
+</script>
+</body>
+</html>
