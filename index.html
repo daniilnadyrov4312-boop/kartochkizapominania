@@ -46,6 +46,9 @@
   .card h2{margin:0;font-size:19px}
   .card .sub{color:var(--muted);font-size:13px}
   .card .cnt{margin-top:auto;color:var(--accent);font-weight:600;font-size:13px}
+  .card.dim{opacity:.55;cursor:default}
+  .card.dim:hover{border-color:var(--line);transform:none}
+  .card.dim .cnt{color:var(--muted)}
   @media(max-width:640px){.cards{grid-template-columns:1fr}}
 
   .task-head{margin-bottom:14px}
@@ -143,6 +146,13 @@
   .answer .qnum{font-weight:600;color:var(--accent);margin:10px 0 4px}
   .cardhint{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--muted);margin-top:10px}
   .task-head .hint{margin-top:2px}
+  .answer .qh{margin:14px 0 6px;font-size:15px;color:var(--accent)}
+  .answer code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:13px}
+  .tablewrap{overflow-x:auto;margin:10px 0}
+  table.qtable{border-collapse:collapse;width:100%;font-size:14px}
+  table.qtable th,table.qtable td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  table.qtable th{background:var(--panel2);color:#fff;font-weight:600}
+  table.qtable tr:nth-child(even) td{background:rgba(255,255,255,.02)}
 </style>
 </head>
 <body>
@@ -151,6 +161,8 @@
 
 <script src="data.js"></script>
 <script src="questions.js"></script>
+<script src="patan_quiz.js"></script>
+<script src="patan_match.js"></script>
 <script>
 /* ====================== НАСТРОЙКИ ====================== */
 const ADMIN_PASS = "micro2026";   // ← пароль для режима «Правка». Поменяй на свой.
@@ -167,8 +179,11 @@ const LS_REPORTS = "trainer_reports";
 /* ====================== STATE ====================== */
 let screen = "home";
 let matchIdx = 0, matchMode = "study", matchInput = "drag"; // study|train|edit ; drag|digits
+let matchSubject = "micro";            // micro | patan — какой набор соответствий активен
+function matchSet(){ return matchSubject==="patan" ? (window.PATAN_MATCH||[]) : (window.TICKETS||[]); }
 let seqIdx = 0, seqMode = "study", seqInput = "drag";
 let quizTask = 3, quizMode = "read", quizIdx = 0, quizReveal = false; // read | cards
+let pquizMode = "read", pquizIdx = 0, pquizReveal = false; // задачи патана
 let isAdmin = sessionStorage.getItem("admin")==="1";
 
 const LETTERS = ["А","Б","В","Г","Д","Е","Ж"];
@@ -179,7 +194,7 @@ function loadOverrides(){ try{return JSON.parse(localStorage.getItem(LS))||{}}ca
 function saveOverrides(o){ localStorage.setItem(LS, JSON.stringify(o)); }
 let overrides = loadOverrides();
 function ticket(i){
-  const t = JSON.parse(JSON.stringify(TICKETS[i]));
+  const t = JSON.parse(JSON.stringify(matchSet()[i]));
   const ov = overrides[t.id];
   if(ov){
     if(ov.answer) t.answer = ov.answer.slice();
@@ -203,6 +218,9 @@ function render(){
   if(screen==="match") return renderMatch(app);
   if(screen==="seq")   return renderSeq(app);
   if(screen==="quiz")  return renderQuiz(app);
+  if(screen==="micro") return renderMicroMenu(app);
+  if(screen==="patan") return renderPatanMenu(app);
+  if(screen==="pquiz") return renderPQuiz(app);
 }
 function go(s){ screen=s; window.scrollTo(0,0); render(); }
 
@@ -220,11 +238,38 @@ function renderHeader(){
   const h = document.getElementById("hdr");
   const lock = `<button class="lock" id="adminbtn">${isAdmin?"🔓 админ":"🔒"}</button>`;
   if(screen==="home"){
-    h.innerHTML = `<button class="home-btn">🧫 Тренажёр по микробиологии</button><div class="grow"></div>${lock}`;
+    h.innerHTML = `<button class="home-btn">🎓 Тренажёр к экзамену</button><div class="grow"></div>${lock}`;
+    document.getElementById("adminbtn").onclick=adminToggle; return;
+  }
+  if(screen==="micro"||screen==="patan"){
+    h.innerHTML = `<button class="home-btn" id="home">🎓 Предметы</button>
+      <div class="grow"></div><span class="pill">${screen==="micro"?"🧫 Микробиология":"🔬 Патанатомия"}</span>${lock}`;
+    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("adminbtn").onclick=adminToggle; return;
+  }
+  if(screen==="pquiz"){
+    const list=(window.PATAN_QUIZ||[]).filter(q=>q.task==="23");
+    h.innerHTML = `<button class="home-btn" id="home">🔬 К заданиям</button>
+      <select id="ppicker"></select>
+      <div class="nav"><button id="pprev">◀</button><button id="pnext">▶</button></div>
+      <div class="grow"></div>
+      <div class="seg" id="pmode">
+        <button data-m="read" class="${pquizMode==='read'?'on':''}">Чтение</button>
+        <button data-m="cards" class="${pquizMode==='cards'?'on':''}">Карточки</button>
+      </div>${lock}`;
+    const p=document.getElementById("ppicker");
+    p.innerHTML=list.map((q,i)=>`<option value="${i}">Задача № ${q.num}</option>`).join("");
+    p.value=pquizIdx;
+    p.onchange=e=>{ pquizIdx=+e.target.value; pquizReveal=false; render(); };
+    document.getElementById("home").onclick=()=>go("patan");
+    document.getElementById("pprev").onclick=()=>{ pquizIdx=(pquizIdx-1+list.length)%list.length; pquizReveal=false; render(); };
+    document.getElementById("pnext").onclick=()=>{ pquizIdx=(pquizIdx+1)%list.length; pquizReveal=false; render(); };
+    document.querySelectorAll("#pmode button").forEach(b=>b.onclick=()=>{ pquizMode=b.dataset.m; pquizReveal=false; render(); });
     document.getElementById("adminbtn").onclick=adminToggle; return;
   }
   if(screen==="match"){
-    h.innerHTML = `<button class="home-btn" id="home">🧫 Главная</button>
+    const SET=matchSet();
+    h.innerHTML = `<button class="home-btn" id="home">${matchSubject==="patan"?"🔬 К заданиям":"🧫 К заданиям"}</button>
       <select id="picker"></select>
       <div class="nav"><button id="prev">◀</button><button id="next">▶</button></div>
       <div class="grow"></div>
@@ -235,15 +280,15 @@ function renderHeader(){
         ${isAdmin?`<button data-m="edit" class="${matchMode==='edit'?'on':''}">Правка</button>`:''}
       </div>${lock}`;
     const p=document.getElementById("picker");
-    p.innerHTML = TICKETS.map((t,i)=>`<option value="${i}">${t.num} — ${t.topic}</option>`).join("");
+    p.innerHTML = SET.map((t,i)=>`<option value="${i}">${t.num} — ${t.topic}</option>`).join("");
     p.value = matchIdx;
     p.onchange=e=>{ matchIdx=+e.target.value; render(); };
-    document.getElementById("home").onclick=()=>go("home");
-    document.getElementById("prev").onclick=()=>{ matchIdx=(matchIdx-1+TICKETS.length)%TICKETS.length; render(); };
-    document.getElementById("next").onclick=()=>{ matchIdx=(matchIdx+1)%TICKETS.length; render(); };
+    document.getElementById("home").onclick=()=>go(matchSubject);
+    document.getElementById("prev").onclick=()=>{ matchIdx=(matchIdx-1+SET.length)%SET.length; render(); };
+    document.getElementById("next").onclick=()=>{ matchIdx=(matchIdx+1)%SET.length; render(); };
     document.querySelectorAll("#mode button").forEach(b=>b.onclick=()=>{ matchMode=b.dataset.m; render(); });
     document.getElementById("adminbtn").onclick=adminToggle;
-    const total=TICKETS.length; let done=0; TICKETS.forEach((_,i)=>{ if(ticket(i).ok) done++; });
+    const total=SET.length; let done=0; SET.forEach((_,i)=>{ if(ticket(i).ok) done++; });
     document.getElementById("progress").textContent=`Готово: ${done}/${total}`;
   }
   if(screen==="seq"){
@@ -259,7 +304,7 @@ function renderHeader(){
     p.innerHTML = SEQUENCES.map((s,i)=>`<option value="${i}">${s.num} — ${s.topic}</option>`).join("") || `<option>нет данных</option>`;
     p.value=seqIdx;
     p.onchange=e=>{ seqIdx=+e.target.value; render(); };
-    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("home").onclick=()=>go("micro");
     document.getElementById("sprev").onclick=()=>{ if(SEQUENCES.length){seqIdx=(seqIdx-1+SEQUENCES.length)%SEQUENCES.length; render();} };
     document.getElementById("snext").onclick=()=>{ if(SEQUENCES.length){seqIdx=(seqIdx+1)%SEQUENCES.length; render();} };
     document.querySelectorAll("#smode button").forEach(b=>b.onclick=()=>{ seqMode=b.dataset.m; render(); });
@@ -280,7 +325,7 @@ function renderHeader(){
     p.innerHTML = list.map((q,i)=>`<option value="${i}">№${q.num} — ${q.title}</option>`).join("");
     p.value=quizIdx;
     p.onchange=e=>{ quizIdx=+e.target.value; quizReveal=false; render(); };
-    document.getElementById("home").onclick=()=>go("home");
+    document.getElementById("home").onclick=()=>go("micro");
     document.getElementById("qprev").onclick=()=>{ quizIdx=(quizIdx-1+list.length)%list.length; quizReveal=false; render(); };
     document.getElementById("qnext").onclick=()=>{ quizIdx=(quizIdx+1)%list.length; quizReveal=false; render(); };
     document.querySelectorAll("#qmode button").forEach(b=>b.onclick=()=>{ quizMode=b.dataset.m; quizReveal=false; render(); });
@@ -291,11 +336,27 @@ function renderHeader(){
 /* ====================== HOME ====================== */
 function renderHome(app){
   app.innerHTML = `
-    <div class="hero"><h1>Тренажёр по микробиологии</h1><p>Выбери, что учить</p></div>
+    <div class="hero"><h1>Тренажёр к экзамену</h1><p>Выбери предмет</p></div>
+    <div class="cards">
+      <div class="card" id="s-micro"><div class="ico">🧫</div>
+        <h2>Микробиология</h2>
+        <div class="sub">Соответствия, последовательности, теория.</div>
+        <div class="cnt">4 задания →</div></div>
+      <div class="card" id="s-patan"><div class="ico">🔬</div>
+        <h2>Патанатомия</h2>
+        <div class="sub">Соответствия, задачи, определения, препараты.</div>
+        <div class="cnt">5 заданий →</div></div>
+    </div>`;
+  document.getElementById("s-micro").onclick=()=>go("micro");
+  document.getElementById("s-patan").onclick=()=>go("patan");
+}
+function renderMicroMenu(app){
+  app.innerHTML = `
+    <div class="hero"><h1>🧫 Микробиология</h1><p>Выбери задание</p></div>
     <div class="cards">
       <div class="card" id="c-match"><div class="ico">🔗</div>
         <h2>Задание 1 — Соответствия</h2>
-        <div class="sub">Сопоставь левый и правый столбцы. Режимы: запоминание и тренировка (перетаскивание или ввод цифрами).</div>
+        <div class="sub">Сопоставь столбцы. Запоминание и тренировка (перетаскивание или цифрами).</div>
         <div class="cnt">${TICKETS.length} билетов →</div></div>
       <div class="card" id="c-seq"><div class="ico">🔢</div>
         <h2>Задание 2 — Последовательности</h2>
@@ -303,17 +364,42 @@ function renderHome(app){
         <div class="cnt">${SEQUENCES.length} наборов →</div></div>
       <div class="card" id="c-q3"><div class="ico">📖</div>
         <h2>Задание 3 — Теория</h2>
-        <div class="sub">Общая микробиология. Режимы: чтение и карточки (вопрос → ответ).</div>
+        <div class="sub">Общая микробиология. Чтение и карточки.</div>
         <div class="cnt">${QUESTIONS.filter(q=>q.task===3).length} вопросов →</div></div>
       <div class="card" id="c-q4"><div class="ico">🧠</div>
         <h2>Задание 4 — Теория</h2>
-        <div class="sub">Иммунология и генетика. Режимы: чтение и карточки.</div>
+        <div class="sub">Иммунология и генетика. Чтение и карточки.</div>
         <div class="cnt">${QUESTIONS.filter(q=>q.task===4).length} вопросов →</div></div>
     </div>`;
-  document.getElementById("c-match").onclick=()=>go("match");
+  document.getElementById("c-match").onclick=()=>{ matchSubject="micro"; matchIdx=0; go("match"); };
   document.getElementById("c-seq").onclick=()=>go("seq");
   document.getElementById("c-q3").onclick=()=>{ quizTask=3; quizIdx=0; quizReveal=false; go("quiz"); };
   document.getElementById("c-q4").onclick=()=>{ quizTask=4; quizIdx=0; quizReveal=false; go("quiz"); };
+}
+function renderPatanMenu(app){
+  const tasks=(window.PATAN_QUIZ||[]).filter(q=>q.task==="23").length;
+  app.innerHTML = `
+    <div class="hero"><h1>🔬 Патанатомия</h1><p>Выбери задание</p></div>
+    <div class="cards">
+      <div class="card" id="p-match"><div class="ico">🔗</div>
+        <h2>Задание 1 — Соответствия</h2>
+        <div class="sub">Сопоставь столбцы. Запоминание и тренировка (перетаскивание или цифрами).</div>
+        <div class="cnt">${(window.PATAN_MATCH||[]).length} подзаданий →</div></div>
+      <div class="card" id="p-tasks"><div class="ico">🩺</div>
+        <h2>Задания 2-3 — Ситуационные задачи</h2>
+        <div class="sub">Клинико-анатомические задачи. Прочитай условие → открой ответ.</div>
+        <div class="cnt">${tasks} задач →</div></div>
+      <div class="card dim"><div class="ico">📖</div>
+        <h2>Задание 4 — Определения</h2>
+        <div class="sub">Скоро: теоретические определения.</div>
+        <div class="cnt">в работе</div></div>
+      <div class="card dim"><div class="ico">🖼️</div>
+        <h2>Задание 5 — Препараты</h2>
+        <div class="sub">Скоро: фото макро/микропрепаратов + описание по плану.</div>
+        <div class="cnt">в работе</div></div>
+    </div>`;
+  const pm=document.getElementById("p-match"); if(pm) pm.onclick=()=>{ matchSubject="patan"; matchIdx=0; matchMode="study"; matchInput="drag"; go("match"); };
+  const pt=document.getElementById("p-tasks"); if(pt) pt.onclick=()=>{ pquizIdx=0; pquizReveal=false; go("pquiz"); };
 }
 
 /* ====================== MATCH ====================== */
@@ -331,7 +417,7 @@ function headHtml(t){
   return `<div class="task-head">
     <div><span class="num">${t.num}</span>${adminBadges}</div>
     <div class="topic">${t.topic}</div>
-    <div class="photo-link"><a class="link" onclick="openPhoto(${t.id})">🖼 открыть фото билета</a></div>
+    ${matchSubject==="patan"?"":`<div class="photo-link"><a class="link" onclick="openPhoto(${t.id})">🖼 открыть фото билета</a></div>`}
     ${note}
   </div>`;
 }
@@ -553,11 +639,12 @@ function renderEdit(t, app){
   document.getElementById("exp").onclick=exportJSON;
 }
 function exportJSON(){
-  const data=TICKETS.map((_,i)=>{ const x=ticket(i);
+  const data=matchSet().map((_,i)=>{ const x=ticket(i);
     return {id:x.id,num:x.num,topic:x.topic,src:x.src,ok:!!x.ok,edited:!!x.edited,
       leftHeader:x.leftHeader,rightHeader:x.rightHeader,left:x.left,right:x.right,answer:x.answer||null}; });
   const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="тренажёр_правки.json"; a.click();
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=(matchSubject==="patan"?"патан_правки.json":"тренажёр_правки.json"); a.click();
 }
 
 /* ====================== SEQUENCES ====================== */
@@ -641,26 +728,48 @@ function checkSeqDigits(s,n){
 
 /* ====================== QUESTIONS (задания 3-4) ====================== */
 function quizList(){ return (window.QUESTIONS||[]).filter(q=>q.task===quizTask); }
-// мини-markdown → HTML: **жирный**, *курсив*, списки "- ", параграфы
+// markdown → HTML: таблицы | ... |, <br>, **жирный**, *курсив*, ## заголовки, списки "- ", параграфы
 function escHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function mdInline(s){
   s=escHtml(s);
+  s=s.replace(/&lt;br\s*\/?&gt;/gi,"<br>");                 // <br> → перенос
+  s=s.replace(/`([^`]+)`/g,"<code>$1</code>");
   s=s.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+  s=s.replace(/__([^_]+)__/g,"<b>$1</b>");
   s=s.replace(/\*([^*]+)\*/g,"<i>$1</i>");
   return s;
 }
+function splitRow(r){ return r.trim().replace(/^\|/,"").replace(/\|\s*$/,"").split("|").map(c=>c.trim()); }
+function isSep(cells){ return cells.length>0 && cells.every(c=>/^:?-{2,}:?$/.test(c.replace(/\s/g,""))); }
+function renderTable(rows){
+  const parsed=rows.map(splitRow);
+  let head=null, start=0;
+  if(parsed.length>=2 && isSep(parsed[1])){ head=parsed[0]; start=2; }
+  let h="<div class='tablewrap'><table class='qtable'>";
+  if(head) h+="<thead><tr>"+head.map(c=>"<th>"+mdInline(c)+"</th>").join("")+"</tr></thead>";
+  h+="<tbody>";
+  for(let r=start;r<parsed.length;r++){ if(isSep(parsed[r])) continue;
+    h+="<tr>"+parsed[r].map(c=>"<td>"+mdInline(c)+"</td>").join("")+"</tr>"; }
+  return h+"</tbody></table></div>";
+}
 function md2html(md){
-  const lines=md.split("\n"); let html=""; let inList=false; let para=[];
+  const lines=md.split("\n"); let html=""; let inList=false; let para=[]; let i=0;
   const flushP=()=>{ if(para.length){ html+="<p>"+mdInline(para.join(" "))+"</p>"; para=[]; } };
   const closeL=()=>{ if(inList){ html+="</ul>"; inList=false; } };
-  for(let raw of lines){
-    const line=raw.trim();
-    if(!line){ flushP(); closeL(); continue; }
+  while(i<lines.length){
+    const line=lines[i].trim();
+    if(!line){ flushP(); closeL(); i++; continue; }
+    if(line.startsWith("|")){                               // таблица
+      flushP(); closeL(); const rows=[];
+      while(i<lines.length && lines[i].trim().startsWith("|")){ rows.push(lines[i].trim()); i++; }
+      html+=renderTable(rows); continue;
+    }
+    const hd=line.match(/^(#{2,4})\s+(.*)$/);
     const li=line.match(/^[-*]\s+(.*)$/);
-    const num=line.match(/^\d+\.\s+(.*)$/);
-    if(li){ flushP(); if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+mdInline(li[1])+"</li>"; }
-    else if(num){ flushP(); closeL(); html+="<div class='qnum'>"+mdInline(line)+"</div>"; }
+    if(hd){ flushP(); closeL(); html+="<h4 class='qh'>"+mdInline(hd[2])+"</h4>"; }
+    else if(li){ flushP(); if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+mdInline(li[1])+"</li>"; }
     else { closeL(); para.push(line); }
+    i++;
   }
   flushP(); closeL();
   return html;
@@ -690,6 +799,32 @@ function renderQuiz(app){
   const rv=document.getElementById("reveal"); if(rv) rv.onclick=()=>{ quizReveal=true; render(); };
   document.getElementById("rnd").onclick=()=>{ quizIdx=(Math.random()*list.length)|0; quizReveal=false; render(); };
   document.getElementById("qn").onclick=()=>{ quizIdx=(quizIdx+1)%list.length; quizReveal=false; render(); };
+}
+
+/* ---- ПАТАН: ситуационные задачи (задания 2-3) ---- */
+function renderPQuiz(app){
+  const list=(window.PATAN_QUIZ||[]).filter(q=>q.task==="23"); const q=list[pquizIdx];
+  if(!q){ app.innerHTML="<p>Нет данных.</p>"; return; }
+  const head=`<div class="task-head">
+    <div><span class="num">Задача № ${q.num}</span> <span class="pill">${pquizIdx+1} из ${list.length}</span></div>
+    <div class="hint">${escHtml(q.section)}</div></div>`;
+  const cond=`<div class="answer">${md2html(q.prompt)}</div>`;
+  const ansBox=`<h4 class="qh">Ответ:</h4><div class="answer">${md2html(q.answer||"— ответа нет в исходном файле, добавим позже —")}</div>`;
+  if(pquizMode==="read"){
+    app.innerHTML=head+cond+ansBox+reportBtn("patan","Задача "+q.num);
+    return;
+  }
+  app.innerHTML=head+cond+
+    (pquizReveal?ansBox:`<div class="cardhint">Разбери задачу в голове, затем открой ответ.</div>`)+
+    `<div class="bar">
+       ${pquizReveal?"":`<button class="primary" id="preveal">👁 Открыть ответ</button>`}
+       <button id="prnd">🎲 Случайная</button>
+       <button id="pn">Следующая ▶</button>
+     </div>`+
+    (pquizReveal?reportBtn("patan","Задача "+q.num):"");
+  const rv=document.getElementById("preveal"); if(rv) rv.onclick=()=>{ pquizReveal=true; render(); };
+  document.getElementById("prnd").onclick=()=>{ pquizIdx=(Math.random()*list.length)|0; pquizReveal=false; render(); };
+  document.getElementById("pn").onclick=()=>{ pquizIdx=(pquizIdx+1)%list.length; pquizReveal=false; render(); };
 }
 
 render();
