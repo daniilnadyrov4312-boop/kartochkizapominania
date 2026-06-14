@@ -145,8 +145,13 @@
   .answer b{color:#fff}
   .answer .qnum{font-weight:600;color:var(--accent);margin:10px 0 4px}
   .cardhint{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:22px;text-align:center;color:var(--muted);margin-top:10px}
+  .prepimgs{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+  .prepimgs a{flex:1 1 260px;max-width:420px}
+  .prepimgs img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
   .task-head .hint{margin-top:2px}
   .answer .qh{margin:14px 0 6px;font-size:15px;color:var(--accent)}
+  .answer .numline{margin:5px 0;padding-left:26px;text-indent:-26px}
+  .answer .numline .nn{display:inline-block;min-width:20px;color:var(--accent);font-weight:600}
   .answer code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:13px}
   .tablewrap{overflow-x:auto;margin:10px 0}
   table.qtable{border-collapse:collapse;width:100%;font-size:14px}
@@ -163,6 +168,7 @@
 <script src="questions.js"></script>
 <script src="patan_quiz.js"></script>
 <script src="patan_match.js"></script>
+<script src="patan_prep.js"></script>
 <script>
 /* ====================== НАСТРОЙКИ ====================== */
 const ADMIN_PASS = "micro2026";   // ← пароль для режима «Правка». Поменяй на свой.
@@ -183,7 +189,8 @@ let matchSubject = "micro";            // micro | patan — какой набо�
 function matchSet(){ return matchSubject==="patan" ? (window.PATAN_MATCH||[]) : (window.TICKETS||[]); }
 let seqIdx = 0, seqMode = "study", seqInput = "drag";
 let quizTask = 3, quizMode = "read", quizIdx = 0, quizReveal = false; // read | cards
-let pquizMode = "read", pquizIdx = 0, pquizReveal = false; // задачи патана
+let pquizMode = "read", pquizIdx = 0, pquizReveal = false, pquizTask = "23"; // задачи/определения патана
+let prepIdx = 0, prepMode = "cards", prepReveal = false; // препараты патана (задание 5)
 let isAdmin = sessionStorage.getItem("admin")==="1";
 
 const LETTERS = ["А","Б","В","Г","Д","Е","Ж"];
@@ -221,6 +228,7 @@ function render(){
   if(screen==="micro") return renderMicroMenu(app);
   if(screen==="patan") return renderPatanMenu(app);
   if(screen==="pquiz") return renderPQuiz(app);
+  if(screen==="prep")  return renderPrep(app);
 }
 function go(s){ screen=s; window.scrollTo(0,0); render(); }
 
@@ -248,7 +256,7 @@ function renderHeader(){
     document.getElementById("adminbtn").onclick=adminToggle; return;
   }
   if(screen==="pquiz"){
-    const list=(window.PATAN_QUIZ||[]).filter(q=>q.task==="23");
+    const list=(window.PATAN_QUIZ||[]).filter(q=>q.task===pquizTask);
     h.innerHTML = `<button class="home-btn" id="home">🔬 К заданиям</button>
       <select id="ppicker"></select>
       <div class="nav"><button id="pprev">◀</button><button id="pnext">▶</button></div>
@@ -258,13 +266,33 @@ function renderHeader(){
         <button data-m="cards" class="${pquizMode==='cards'?'on':''}">Карточки</button>
       </div>${lock}`;
     const p=document.getElementById("ppicker");
-    p.innerHTML=list.map((q,i)=>`<option value="${i}">Задача № ${q.num}</option>`).join("");
+    p.innerHTML=list.map((q,i)=>`<option value="${i}">${pquizTask==="23"?("Задача № "+q.num):("№"+q.num+" — "+q.title)}</option>`).join("");
     p.value=pquizIdx;
     p.onchange=e=>{ pquizIdx=+e.target.value; pquizReveal=false; render(); };
     document.getElementById("home").onclick=()=>go("patan");
     document.getElementById("pprev").onclick=()=>{ pquizIdx=(pquizIdx-1+list.length)%list.length; pquizReveal=false; render(); };
     document.getElementById("pnext").onclick=()=>{ pquizIdx=(pquizIdx+1)%list.length; pquizReveal=false; render(); };
     document.querySelectorAll("#pmode button").forEach(b=>b.onclick=()=>{ pquizMode=b.dataset.m; pquizReveal=false; render(); });
+    document.getElementById("adminbtn").onclick=adminToggle; return;
+  }
+  if(screen==="prep"){
+    const list=(window.PATAN_PREP||[]);
+    h.innerHTML = `<button class="home-btn" id="home">🔬 К заданиям</button>
+      <select id="rpicker"></select>
+      <div class="nav"><button id="rprev">◀</button><button id="rnext">▶</button></div>
+      <div class="grow"></div>
+      <div class="seg" id="rmode">
+        <button data-m="read" class="${prepMode==='read'?'on':''}">Просмотр</button>
+        <button data-m="cards" class="${prepMode==='cards'?'on':''}">Карточки</button>
+      </div>${lock}`;
+    const p=document.getElementById("rpicker");
+    p.innerHTML=list.map((q,i)=>`<option value="${i}">№${q.num} — ${q.name}</option>`).join("");
+    p.value=prepIdx;
+    p.onchange=e=>{ prepIdx=+e.target.value; prepReveal=false; render(); };
+    document.getElementById("home").onclick=()=>go("patan");
+    document.getElementById("rprev").onclick=()=>{ prepIdx=(prepIdx-1+list.length)%list.length; prepReveal=false; render(); };
+    document.getElementById("rnext").onclick=()=>{ prepIdx=(prepIdx+1)%list.length; prepReveal=false; render(); };
+    document.querySelectorAll("#rmode button").forEach(b=>b.onclick=()=>{ prepMode=b.dataset.m; prepReveal=false; render(); });
     document.getElementById("adminbtn").onclick=adminToggle; return;
   }
   if(screen==="match"){
@@ -389,17 +417,19 @@ function renderPatanMenu(app){
         <h2>Задания 2-3 — Ситуационные задачи</h2>
         <div class="sub">Клинико-анатомические задачи. Прочитай условие → открой ответ.</div>
         <div class="cnt">${tasks} задач →</div></div>
-      <div class="card dim"><div class="ico">📖</div>
+      <div class="card" id="p-defs"><div class="ico">📖</div>
         <h2>Задание 4 — Определения</h2>
-        <div class="sub">Скоро: теоретические определения.</div>
-        <div class="cnt">в работе</div></div>
-      <div class="card dim"><div class="ico">🖼️</div>
+        <div class="sub">Теоретические определения. Чтение и карточки.</div>
+        <div class="cnt">${(window.PATAN_QUIZ||[]).filter(q=>q.task==="4").length} вопросов →</div></div>
+      <div class="card" id="p-prep"><div class="ico">🖼️</div>
         <h2>Задание 5 — Препараты</h2>
-        <div class="sub">Скоро: фото макро/микропрепаратов + описание по плану.</div>
-        <div class="cnt">в работе</div></div>
+        <div class="sub">Фото макро/микропрепаратов + описание по плану. Опиши → открой эталон.</div>
+        <div class="cnt">${(window.PATAN_PREP||[]).length} препаратов →</div></div>
     </div>`;
   const pm=document.getElementById("p-match"); if(pm) pm.onclick=()=>{ matchSubject="patan"; matchIdx=0; matchMode="study"; matchInput="drag"; go("match"); };
-  const pt=document.getElementById("p-tasks"); if(pt) pt.onclick=()=>{ pquizIdx=0; pquizReveal=false; go("pquiz"); };
+  const pt=document.getElementById("p-tasks"); if(pt) pt.onclick=()=>{ pquizTask="23"; pquizIdx=0; pquizReveal=false; go("pquiz"); };
+  const pd=document.getElementById("p-defs"); if(pd) pd.onclick=()=>{ pquizTask="4"; pquizIdx=0; pquizReveal=false; go("pquiz"); };
+  const pr=document.getElementById("p-prep"); if(pr) pr.onclick=()=>{ prepIdx=0; prepReveal=false; go("prep"); };
 }
 
 /* ====================== MATCH ====================== */
@@ -765,9 +795,11 @@ function md2html(md){
       html+=renderTable(rows); continue;
     }
     const hd=line.match(/^(#{2,4})\s+(.*)$/);
-    const li=line.match(/^[-*]\s+(.*)$/);
+    const li=line.match(/^[-*•]\s+(.*)$/);
+    const nl=line.match(/^(\d+[.)])\s+(.*)$/);   // нумерованный пункт "1. " / "1) "
     if(hd){ flushP(); closeL(); html+="<h4 class='qh'>"+mdInline(hd[2])+"</h4>"; }
     else if(li){ flushP(); if(!inList){ html+="<ul>"; inList=true; } html+="<li>"+mdInline(li[1])+"</li>"; }
+    else if(nl){ flushP(); closeL(); html+="<div class='numline'><span class='nn'>"+nl[1]+"</span> "+mdInline(nl[2])+"</div>"; }
     else { closeL(); para.push(line); }
     i++;
   }
@@ -801,30 +833,61 @@ function renderQuiz(app){
   document.getElementById("qn").onclick=()=>{ quizIdx=(quizIdx+1)%list.length; quizReveal=false; render(); };
 }
 
-/* ---- ПАТАН: ситуационные задачи (задания 2-3) ---- */
+/* ---- ПАТАН: задачи (2-3) и определения (4) ---- */
 function renderPQuiz(app){
-  const list=(window.PATAN_QUIZ||[]).filter(q=>q.task==="23"); const q=list[pquizIdx];
+  const list=(window.PATAN_QUIZ||[]).filter(q=>q.task===pquizTask); const q=list[pquizIdx];
   if(!q){ app.innerHTML="<p>Нет данных.</p>"; return; }
+  const isTask=pquizTask==="23";
+  const lbl=(isTask?"Задача № "+q.num:"Вопрос № "+q.num);
   const head=`<div class="task-head">
-    <div><span class="num">Задача № ${q.num}</span> <span class="pill">${pquizIdx+1} из ${list.length}</span></div>
+    <div><span class="num">${isTask?("Задача № "+q.num):("Вопрос № "+q.num)}</span> <span class="pill">${pquizIdx+1} из ${list.length}</span></div>
+    ${isTask?"":`<div class="topic">${escHtml(q.title)}</div>`}
     <div class="hint">${escHtml(q.section)}</div></div>`;
-  const cond=`<div class="answer">${md2html(q.prompt)}</div>`;
+  const cond=q.prompt?`<div class="answer">${md2html(q.prompt)}</div>`:"";
   const ansBox=`<h4 class="qh">Ответ:</h4><div class="answer">${md2html(q.answer||"— ответа нет в исходном файле, добавим позже —")}</div>`;
+  const hint=isTask?"Разбери задачу в голове, затем открой ответ.":"Ответь в голове, затем открой ответ.";
   if(pquizMode==="read"){
-    app.innerHTML=head+cond+ansBox+reportBtn("patan","Задача "+q.num);
+    app.innerHTML=head+cond+ansBox+reportBtn("patan",lbl);
     return;
   }
   app.innerHTML=head+cond+
-    (pquizReveal?ansBox:`<div class="cardhint">Разбери задачу в голове, затем открой ответ.</div>`)+
+    (pquizReveal?ansBox:`<div class="cardhint">${hint}</div>`)+
     `<div class="bar">
        ${pquizReveal?"":`<button class="primary" id="preveal">👁 Открыть ответ</button>`}
-       <button id="prnd">🎲 Случайная</button>
-       <button id="pn">Следующая ▶</button>
+       <button id="prnd">🎲 Случайн${isTask?"ая":"ый"}</button>
+       <button id="pn">Следующ${isTask?"ая":"ий"} ▶</button>
      </div>`+
-    (pquizReveal?reportBtn("patan","Задача "+q.num):"");
+    (pquizReveal?reportBtn("patan",lbl):"");
   const rv=document.getElementById("preveal"); if(rv) rv.onclick=()=>{ pquizReveal=true; render(); };
   document.getElementById("prnd").onclick=()=>{ pquizIdx=(Math.random()*list.length)|0; pquizReveal=false; render(); };
   document.getElementById("pn").onclick=()=>{ pquizIdx=(pquizIdx+1)%list.length; pquizReveal=false; render(); };
+}
+
+/* ---- ПАТАН: препараты (задание 5) ---- */
+function renderPrep(app){
+  const list=(window.PATAN_PREP||[]); const q=list[prepIdx];
+  if(!q){ app.innerHTML="<p>Нет данных.</p>"; return; }
+  const head=`<div class="task-head">
+    <div><span class="num">Препарат № ${q.num}</span> <span class="pill">${prepIdx+1} из ${list.length}</span> <span class="pill">${q.section}</span></div>
+    <div class="topic">${escHtml(q.name)}</div></div>`;
+  const photos=`<div class="prepimgs">${q.images.map(src=>
+    `<a href="${src}" target="_blank"><img src="${src}" loading="lazy" alt="препарат"></a>`).join("")}</div>`;
+  const descBox=`<h4 class="qh">Описание по плану:</h4><div class="answer">${md2html(q.description||"— нет описания —")}</div>`;
+  if(prepMode==="read"){
+    app.innerHTML=head+photos+descBox+reportBtn("patan","Препарат "+q.num+" "+q.name);
+    return;
+  }
+  app.innerHTML=head+photos+
+    (prepReveal?descBox:`<div class="cardhint">Опиши препарат по плану в голове, затем открой эталон.</div>`)+
+    `<div class="bar">
+       ${prepReveal?"":`<button class="primary" id="rreveal">👁 Открыть описание</button>`}
+       <button id="rrnd">🎲 Случайный</button>
+       <button id="rnx">Следующий ▶</button>
+     </div>`+
+    (prepReveal?reportBtn("patan","Препарат "+q.num+" "+q.name):"");
+  const rv=document.getElementById("rreveal"); if(rv) rv.onclick=()=>{ prepReveal=true; render(); };
+  document.getElementById("rrnd").onclick=()=>{ prepIdx=(Math.random()*list.length)|0; prepReveal=false; render(); };
+  document.getElementById("rnx").onclick=()=>{ prepIdx=(prepIdx+1)%list.length; prepReveal=false; render(); };
 }
 
 render();
