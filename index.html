@@ -148,6 +148,9 @@
   .prepimgs{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
   .prepimgs a{flex:1 1 260px;max-width:420px}
   .prepimgs img{width:100%;border:1px solid var(--line);border-radius:8px;background:#fff;display:block}
+  .plan{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;margin:12px 0;font-size:14px}
+  .plan b{display:block;margin-bottom:5px;color:var(--accent)}
+  .plan div{color:var(--muted);margin:1px 0}
   .task-head .hint{margin-top:2px}
   .answer .qh{margin:14px 0 6px;font-size:15px;color:var(--accent)}
   .answer .numline{margin:5px 0;padding-left:26px;text-indent:-26px}
@@ -872,12 +875,20 @@ function renderPrep(app){
     <div class="topic">${escHtml(q.name)}</div></div>`;
   const photos=`<div class="prepimgs">${q.images.map(src=>
     `<a href="${src}" target="_blank"><img src="${src}" loading="lazy" alt="препарат"></a>`).join("")}</div>`;
+  const plan=`<div class="plan"><b>Опишите препарат по схеме:</b>
+    <div>А) название препарата (диагноз)</div>
+    <div>Б) орган</div>
+    <div>В) окраска (для микропрепарата)</div>
+    <div>Г) патологические процессы</div>
+    <div>Д) причины</div>
+    <div>Е) исходы</div>
+    <div>Ж) осложнения</div></div>`;
   const descBox=`<h4 class="qh">Описание по плану:</h4><div class="answer">${md2html(q.description||"— нет описания —")}</div>`;
   if(prepMode==="read"){
-    app.innerHTML=head+photos+descBox+reportBtn("patan","Препарат "+q.num+" "+q.name);
+    app.innerHTML=head+photos+plan+descBox+reportBtn("patan","Препарат "+q.num+" "+q.name);
     return;
   }
-  app.innerHTML=head+photos+
+  app.innerHTML=head+photos+plan+
     (prepReveal?descBox:`<div class="cardhint">Опиши препарат по плану в голове, затем открой эталон.</div>`)+
     `<div class="bar">
        ${prepReveal?"":`<button class="primary" id="rreveal">👁 Открыть описание</button>`}
